@@ -1,0 +1,21 @@
+{% extends 'tasks/base.html' %} {% block title %}Confirm Delete{% endblock %}
+{%block content %}
+<div class="card text-center">
+  <div class="card-header bg-danger text-white">
+    <h2 class="card-title mb-0">Confirm Deletion</h2>
+  </div>
+  <div class="card-body">
+    <p class="lead">
+      Are you sure you want to delete the task:
+      <strong>"{{ task.task_name }}"</strong>?
+    </p>
+    <p>This action cannot be undone.</p>
+
+    <form method="post">
+      {% csrf_token %}
+      <a href="{% url 'task_detail' %}" class="btn btn-secondary">Cancel</a>
+      <button type="submit" class="btn btn-danger">Yes, Delete</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

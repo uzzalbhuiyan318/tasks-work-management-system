@@ -1,0 +1,46 @@
+{% extends 'tasks/base.html' %} {% block title %}Task Details{% endblock %}
+{%block content %}
+<div class="card">
+  <div class="card-header bg-primary text-white">
+    <h2 class="card-title mb-0">Task: {{ task.task_name }}</h2>
+  </div>
+  <div class="card-body">
+    <p><strong>Description: </strong> {{ task.description}}</p>
+    <hr />
+    <div class="row">
+      <div class="col-md-6">
+        <p><strong>Assigned To:</strong> {{ task.assigned_to }}</p>
+        <p>
+          <strong>Priority:</strong>
+          {% if task.priority == 'High' %}
+          <span class="badge bg-danger">{{ task.priority }}</span>
+          {% elif task.priority == 'Medium' %}
+          <span class="badge bg-warning text-dark">{{ task.priority }}</span>
+          {% else %}
+          <span class="badge bg-success">{{ task.priority }}</span>
+          {% endif %}
+        </p>
+        <p>
+          <strong>Status:</strong>
+          <span class="badge bg-info">{{ task.status }}</span>
+        </p>
+      </div>
+      <div class="col-md-6">
+        <p><strong>Due Date:</strong> {{ task.due_date|date:"F d, Y" }}</p>
+        <p>
+          <strong>Created Date:</strong> {{ task.created_date|date:"F d, Y, P"}}
+        </p>
+      </div>
+    </div>
+  </div>
+  <div class="card-footer text-end">
+    <a href="{% url 'task_update' task.pk %}" class="btn btn-warning"
+      >Edit Task</a
+    >
+    <a href="{% url 'task_delete' task.pk %}" class="btn btn-danger"
+      >Delete Task</a
+    >
+    <a href="{% url 'task_list' %}" class="btn btn-secondary">Back to List</a>
+  </div>
+</div>
+{% endblock %}
