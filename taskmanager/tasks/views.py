@@ -1,107 +1,133 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.core.paginator import Paginator
 from django.db.models import Q
-from .models import tasks  # Corrected: Use the model class name 'Task'
+from .models import tasks
 from .forms import TaskForm
+from django.http import JsonResponse # Import JsonResponse
 
+
+# Helper function to check for AJAX requests from our script
+def is_ajax(request):
+    return 'application/json' in request.META.get('HTTP_ACCEPT', '')
+
+# Helper function to convert a task object into a dictionary for JSON
+def serialize_task(task):
+    """Converts a Task model instance into a JSON-friendly dictionary."""
+    priority_class = 'success'
+    if task.priority == 'High':
+        priority_class = 'danger'
+    elif task.priority == 'Medium':
+        priority_class = 'warning text-dark'
+    
+    return {
+        'id': task.id,
+        'name': task.task_name,
+        'description': task.description or "",
+        'assigned_to': task.assigned_to,
+        'priority': task.priority,
+        'priority_class': priority_class,
+        'status': task.status,
+        'due_date': task.due_date.strftime('%Y-%m-%d'),
+        'created_date': task.created_date.strftime('%B %d, %Y, %I:%M %p')
+    }
+    
+    
 def task_list(request):
-    """
-    Displays a list of all tasks with filtering, searching, sorting, and pagination.
-    """
-    # Start with all tasks and then apply filters
-    tasks_list = tasks.objects.all()
+    tasks_list = tasks.objects.all().order_by('-created_date') # Order by most recent
 
-    # Search: Filter by task name or assignee
+    # --- (All your filter and search logic remains exactly the same here) ---
     search_query = request.GET.get('search', '')
     if search_query:
-        # Corrected: Use Q objects for OR queries and double underscore for lookups
-        tasks_list = tasks_list.filter(
-            Q(task_name__icontains=search_query) |
-            Q(assigned_to__icontains=search_query)
-        )
-
-    # Filter by status
+        tasks_list = tasks_list.filter(Q(task_name__icontains=search_query) | Q(assigned_to__icontains=search_query))
     status_filter = request.GET.get('status', '')
     if status_filter:
         tasks_list = tasks_list.filter(status=status_filter)
-
-    # Filter by priority
     priority_filter = request.GET.get('priority', '')
     if priority_filter:
         tasks_list = tasks_list.filter(priority=priority_filter)
-
-    # Filter by due date range
+        
+        
     start_date_filter = request.GET.get('start_date', '')
     end_date_filter = request.GET.get('end_date', '')
     if start_date_filter and end_date_filter:
-        # Corrected: Use '__range' for date range filtering
         tasks_list = tasks_list.filter(due_date__range=[start_date_filter, end_date_filter])
 
-    # Sorting
-    sort_by = request.GET.get('sort', 'due_date') # Default sort by due_date
+    # Sorting (Bonus)
+    sort_by = request.GET.get('sort', 'due_date')
     tasks_list = tasks_list.order_by(sort_by)
-
-    # Pagination
-    paginator = Paginator(tasks_list, 10)  # Show 10 tasks per page
+    
+    paginator = Paginator(tasks_list, 10)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
-    # Corrected: This return statement should be at the end of the function
-    return render(request, 'tasks/task_list.html', {'page_obj': page_obj})
+    # Add an empty form instance to the context for the modal
+    form = TaskForm()
 
-
-def task_detail(request, pk):
-    """
-    Displays the details of a single task.
-    """
-    # Corrected: Pass the primary key (pk) to get the specific task
-    task = get_object_or_404(tasks, pk=pk)
-    # Corrected: Template name and context variable were wrong
-    return render(request, 'tasks/task_detail.html', {'task': task})
+    context = {
+        'page_obj': page_obj,
+        'form': form # Pass the form to the template
+    }
+    return render(request, 'tasks/task_list.html', context)
 
 
 def task_create(request):
-    """
-    Creates a new task.
-    """
+    """Handles creation of a new task, supporting AJAX."""
     if request.method == "POST":
         form = TaskForm(request.POST)
-        # Corrected: Method is 'is_valid()', not 'Is_Valid()'
         if form.is_valid():
-            form.save()
-            # Corrected: URL name should be a string
+            task = form.save()
+            if is_ajax(request):
+                return JsonResponse({'success': True, 'task': serialize_task(task)})
             return redirect("task_list")
-    else:
-        # Corrected: Create an instance of the form
-        form = TaskForm()
+        else:
+            if is_ajax(request):
+                return JsonResponse({'success': False, 'errors': form.errors}, status=400)
     
-    # This return handles both the initial GET request and the case where the POST form is invalid
+    # For a non-AJAX invalid form or a GET request, show the full page form
+    return render(request, 'tasks/task_form.html', {'form': TaskForm()})
+    # If GET request, show the form page (for non-JS users or direct access)
+    form = TaskForm()
     return render(request, 'tasks/task_form.html', {'form': form})
 
 
+# --- Your other views (task_detail, task_update, task_delete) remain unchanged ---
+
+def task_detail(request, pk):
+    """Handles viewing a single task, supporting AJAX."""
+    task = get_object_or_404(tasks, pk=pk)
+    if is_ajax(request):
+        # For AJAX requests, return task data as JSON
+        return JsonResponse({'success': True, 'task': serialize_task(task)})
+    # For regular requests, render the HTML page
+    return render(request, 'tasks/task_detail.html', {'task': task})
+
 def task_update(request, pk):
-    """
-    Updates an existing task.
-    """
-    # Corrected: Pass pk to get the specific task to update
+    """Handles updating a task, supporting AJAX."""
     task = get_object_or_404(tasks, pk=pk)
     if request.method == "POST":
         form = TaskForm(request.POST, instance=task)
         if form.is_valid():
-            form.save()
+            updated_task = form.save()
+            if is_ajax(request):
+                return JsonResponse({'success': True, 'task': serialize_task(updated_task)})
             return redirect('task_list')
-    else:
-        form = TaskForm(instance=task)
-    return render(request, 'tasks/task_form.html', {'form': form})
-
+        else:
+            if is_ajax(request):
+                return JsonResponse({'success': False, 'errors': form.errors}, status=400)
+    
+    # For a regular GET request
+    form = TaskForm(instance=task)
+    return render(request, 'tasks/task_form.html', {'form': form, 'task': task})
 
 def task_delete(request, pk):
-    """
-    Deletes a task after confirmation.
-    """
-    # Corrected: Pass pk to get the specific task to delete
+    """Handles deleting a task, supporting AJAX."""
     task = get_object_or_404(tasks, pk=pk)
     if request.method == 'POST':
         task.delete()
+        if is_ajax(request):
+            return JsonResponse({'success': True})
         return redirect('task_list')
+    
+    # For a regular GET request
     return render(request, 'tasks/task_confirm_delete.html', {'task': task})
+
