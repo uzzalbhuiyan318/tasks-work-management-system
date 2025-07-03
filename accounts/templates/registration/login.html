@@ -1,0 +1,20 @@
+{% extends 'tasks/base.html' %} {% block title %}Login{% endblock %} {% block
+content %}
+<div class="row justify-content-center">
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-header">
+        <h2 class="card-title mb-0">Login</h2>
+      </div>
+      <div class="card-body">
+        <form method="post">
+          {% csrf_token %} {{ form.as_p }}
+          <div class="text-end">
+            <button type="submit" class="btn btn-primary">Login</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
